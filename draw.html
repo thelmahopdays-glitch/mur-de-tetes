@@ -1,0 +1,46 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>Dessine ta tête</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fdf6e3;font-family:system-ui,sans-serif;color:#222;text-align:center;padding:14px;touch-action:manipulation}
+h1{font-size:24px;margin:4px 0 10px}
+#box{position:relative;width:min(92vw,400px);margin:0 auto}
+canvas{width:100%;aspect-ratio:1;background:#fff;border-radius:16px;box-shadow:0 4px 14px #0002;touch-action:none;display:block}
+#guide{position:absolute;inset:14% 22% 10%;border:3px dashed #0002;border-radius:50%;pointer-events:none}
+.row{display:flex;justify-content:center;gap:10px;margin:12px 0;flex-wrap:wrap}
+.col{width:36px;height:36px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #0003;padding:0}
+.col.on{box-shadow:0 0 0 3px #222}
+button.b{font-size:16px;padding:10px 16px;border-radius:12px;border:0;background:#222;color:#fff}
+button.g{background:#e8e0cc;color:#222}
+#send{font-size:20px;padding:14px 28px;background:#e4572e}
+#done{display:none}
+</style></head><body>
+<div id="draw"><h1>Dessine ta tête !</h1>
+<div id="box"><canvas id="c"></canvas><div id="guide"></div></div>
+<div class="row" id="cols"></div>
+<div class="row"><button class="b g" id="thin">Fin</button><button class="b g" id="thick">Épais</button><button class="b g" id="undo">Annuler</button><button class="b g" id="clr">Effacer</button></div>
+<div class="row"><button class="b" id="send">Envoyer sur le mur</button></div></div>
+<div id="done"><h1>Ta tête est sur le mur ! 🎉</h1><div class="row"><button class="b" onclick="location.reload()">Dessiner une autre tête</button></div></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');c.width=c.height=400;
+let strokes=[],cur=null,color='#222222',size=8;
+function redraw(){x.clearRect(0,0,400,400);x.lineCap=x.lineJoin='round';
+ for(const s of strokes){x.strokeStyle=s.c;x.lineWidth=s.w;x.beginPath();
+  s.p.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));if(s.p.length==1)x.lineTo(s.p[0][0]+.1,s.p[0][1]);x.stroke()}}
+const pos=e=>{const r=c.getBoundingClientRect();return[(e.clientX-r.left)*400/r.width,(e.clientY-r.top)*400/r.height]};
+c.onpointerdown=e=>{c.setPointerCapture(e.pointerId);cur={c:color,w:size,p:[pos(e)]};strokes.push(cur);redraw()};
+c.onpointermove=e=>{if(cur){cur.p.push(pos(e));redraw()}};
+c.onpointerup=c.onpointercancel=()=>cur=null;
+const cols=['#222222','#e4572e','#f5a623','#2e9e5b','#2b7de9','#8e44ad','#ff7eb6','#8d5a2b'];
+const cd=document.getElementById('cols');
+cols.forEach((k,i)=>{const b=document.createElement('button');b.className='col'+(i?'':' on');b.style.background=k;
+ b.onclick=()=>{color=k;[...cd.children].forEach(n=>n.classList.remove('on'));b.classList.add('on')};cd.appendChild(b)});
+thin.onclick=()=>size=4;thick.onclick=()=>size=14;
+undo.onclick=()=>{strokes.pop();redraw()};clr.onclick=()=>{strokes=[];redraw()};
+send.onclick=async()=>{
+ if(!strokes.length)return alert('Dessine quelque chose d’abord !');
+ const t=document.createElement('canvas');t.width=t.height=300;t.getContext('2d').drawImage(c,0,0,300,300);
+ send.disabled=true;send.textContent='Envoi…';
+ try{const r=await fetch('/api/heads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({img:t.toDataURL('image/png')})});
+  if(!r.ok)throw 0;draw.style.display='none';done.style.display='block'}
+ catch{alert('Oups, l’envoi a échoué. Réessaie !');send.disabled=false;send.textContent='Envoyer sur le mur'}};
+</script></body></html>

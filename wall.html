@@ -1,0 +1,36 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Le mur des têtes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+body{margin:0;background:#fdf6e3;font-family:system-ui,sans-serif;color:#222;min-height:100vh}
+header{display:flex;align-items:center;justify-content:center;gap:28px;padding:24px;flex-wrap:wrap;text-align:center}
+h1{margin:0;font-size:clamp(30px,5vw,60px)} p{margin:6px 0 0;font-size:clamp(16px,2vw,24px)}
+#qr{background:#fff;padding:10px;border-radius:14px;box-shadow:0 4px 14px #0002}
+#wall{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:16px 16px 60px}
+.h{width:clamp(100px,14vw,180px);transform:rotate(var(--r))}
+.h img{width:100%;display:block;animation:f 4s ease-in-out infinite;animation-delay:var(--d)}
+.h.new img{animation:pop .8s cubic-bezier(.3,1.6,.5,1)}
+.adm .h{cursor:pointer}
+@keyframes f{50%{transform:translateY(-8px)}}
+@keyframes pop{from{transform:scale(0) rotate(-40deg)}}
+</style></head><body>
+<header><div><h1>Le mur des têtes</h1><p>Scanne, dessine ta tête, elle apparaît ici.</p></div><div id="qr"></div></header>
+<main id="wall"></main>
+<script>
+const key=new URLSearchParams(location.search).get('key');if(key)document.body.classList.add('adm');
+new QRCode(document.getElementById('qr'),{text:location.origin+'/dessiner',width:170,height:170});
+const wall=document.getElementById('wall');
+const hash=s=>[...s].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,7);
+function add(h,fresh){
+  if(document.getElementById('h'+h.id))return;
+  const n=hash(h.id),d=document.createElement('div');
+  d.className='h'+(fresh?' new':'');d.id='h'+h.id;
+  d.style.setProperty('--r',(n%21-10)+'deg');d.style.setProperty('--d',-(n%40)/10+'s');
+  d.innerHTML='<img alt="">';d.firstChild.src=h.img;
+  d.onclick=()=>{if(key&&confirm('Supprimer cette tête ?'))fetch('/api/heads/'+h.id+'?key='+encodeURIComponent(key),{method:'DELETE'})};
+  wall.prepend(d);
+}
+fetch('/api/heads').then(r=>r.json()).then(l=>l.forEach(h=>add(h,false)));
+const es=new EventSource('/api/stream');
+es.addEventListener('add',e=>add(JSON.parse(e.data),true));
+es.addEventListener('del',e=>{const el=document.getElementById('h'+JSON.parse(e.data).id);if(el)el.remove()});
+</script></body></html>
